@@ -1,0 +1,275 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <conio.h>
+#include <dos.h>
+
+#define IRQ7 0x0F		//7号中断的向量值
+unsigned char TK=100,TC,GATE;  
+		 int UK,UK_1,UK_2,UK_3,EK,EK_1,EK_2,EK_3;
+		 int K0=5435,K1=-2000,K2=0,K3=0,P1=7170,P2=0,P3=0;
+		 int EZ,UZ;
+/*****************************************
+函数声明
+*****************************************/
+void td_setvect(unsigned char interruptno,void interrupt(* isr)());
+void td_sysinti(void);
+void td_openint_master(unsigned char interruptno);
+void td_settime1(unsigned int time);
+void td_delay(int time);
+void td_display(char a);
+	 td_mdiv16(int x,int y,int z);
+void interrupt irq6_isr(void);
+void interrupt irq7_isr(void);
+/*****************************************
+主函数
+*****************************************/
+void main()
+{ 	
+	td_sysinti();    	//系统初始化
+	td_setvect(IRQ7,irq7_isr);//设置7号中断入口地址
+	td_openint_master(IRQ7);	//打开7号中断
+	td_settime1(10);		//定时器定时10ms  采样周期为tk*10ms
+	TC = 1;
+
+	UK=UK_1=UK_2=UK_3=0;
+    EK=EK_1=EK_2=EK_3=0;
+
+  	outp(0x640,0x80);	//D/A清零
+   	enable();			//开总中断
+   	while(1);
+}
+
+/*****************************************
+7号中断服务程序
+*****************************************/
+void interrupt irq7_isr()
+{	char aa,bb;
+	int A,B,C,D;
+
+	GATE=inp(0xf860)&0x01;
+if(GATE)
+{
+    UK=UK_1=UK_2=UK_3=0;
+    EK=EK_1=EK_2=EK_3=0;
+    outp(0x640,0x80);
+	TC=0x01;
+}
+
+else
+{
+	TC--;
+  if(TC==0)
+   {
+	 EZ=UZ=0;
+     aa=inp(0x600)-128;
+     
+     EK=aa;
+     A=td_mdiv16(EK,K0,10000);
+     B=td_mdiv16(EK_1,K1,10000);
+     C=td_mdiv16(EK_2,K2,10000);
+     D=td_mdiv16(EK_3,K3,10000);
+     EZ=A+B+C+D;            //EZ=(EK*K0+K1*EK_1+K2*EK_2+K3*EK_3)/10000;
+     A=td_mdiv16(UK_1,P1,10000);
+     B=td_mdiv16(UK_2,P2,10000);
+     C=td_mdiv16(UK_3,P3,10000);
+     UZ=A+B+C;             //UZ=(P1*UK_1+P2*UK_2+P3*UK_3)/10000;    
+     UK=EZ-UZ;
+     bb=UK;
+     outp(0x640,bb+128);
+	
+	 UK_3=UK_2;
+	 UK_2=UK_1;
+	 UK_1=UK;
+     EK_3=EK_2;
+	 EK_2=EK_1;
+	 EK_1=EK;
+     TC=TK;
+   	 }
+   }
+	outp(0x20,0x20);		
+	return;
+}
+
+/**********************************************
+函数名：td_delay
+功能：				  设置延时时间
+参数：	time
+返回值：无
+***********************************************/
+void td_delay(int time)
+{ int i;
+  for(i=0;i<=time;i++) {}
+  return;
+}
+
+/**********************************************
+函数名：td_display
+功能：				  显示一个字符
+参数：	a			  字符型变量
+返回值：无
+***********************************************/
+void td_display(char a)
+{ char t;
+  int i;
+  t=a;
+  _CL=0x04;
+  _asm 	shr a,cl
+  if(a>0x09) a=a+0x07;
+  a=a+0x30;
+
+  _AL=a;
+  _AH=0x01;
+  _asm int 10h
+  t=t&0x0f;
+  if (t>0x09) t=t+0x07;
+
+  t=t+0x30;
+  _AL=t;
+  _AH=0x01;
+  _asm int 10h
+  return;
+}
+
+/**********************************************
+函数名：td_setvect
+功能：				  设置中断矢量入口
+参数：	interruptno   中断向量值
+		(* isr)		  中断服务程序入口地址
+返回值：无
+***********************************************/
+void td_setvect(unsigned char interruptno,void interrupt(* isr)())
+{unsigned int interruptaddr1,interruptaddr2,isr_l,isr_h;
+ interruptaddr1= interruptno * 4;
+ interruptaddr2= interruptno * 4 + 2;
+ isr_l= (unsigned int)isr;			//得到入口地址的偏移量
+ isr_h= (unsigned long)isr/65536;	//得到入口地址的段地址
+_asm{   push ds						//填写入口地址
+		 xor ax,ax
+		 mov ds,ax
+		 mov ax,isr_l
+		 mov si,interruptaddr1
+		 mov [si],ax
+		 mov ax,isr_h
+		 mov si,interruptaddr2
+		 mov [si],ax
+		 cli
+         pop ds
+     }
+}
+
+/**********************************************
+函数名：td_sysinti 	          
+功能：				  管脚初始化I/O,中断，定时器
+					  初始化CS0地址范围，初始化主从片8259
+参数：	无
+返回值：无	
+***********************************************/
+void td_sysinti(void)
+{
+  _asm{
+  		 mov   ax,8000h
+   		 out   23h,al
+   	   	 XCHG  AL,AH
+  	     OUT   22H,AL
+         OUT   22H,AX
+       }
+
+  outp(0x0F822,0x70);	//P2CFG =0000,0000  P2管脚配置为CS4~CS0输出
+  outp(0x0F824,0xB2);   //P3CFG =1011,0010	P3管脚配置中断输出IR7~IR6等等
+  outp(0x0F832,0x0a);   //INTCFG=0000,1010  中断管脚配置
+  outp(0x0F834,0x1D);   //TMRCFG=0001,1101  定时器管脚配置
+ 
+  outp(0x20,0x11); //int master8259
+  outp(0x21,0x08);
+  outp(0x21,0x04);
+  outp(0x21,0x01);         
+  outp(0x21,0xEF);//开4号中断（串口中断）
+  
+  outp(0xa0,0x11); //int slave8259
+  outp(0xa1,0x30);        
+  outp(0xa1,0x02);
+  outp(0xa1,0x01);         
+  outp(0xa1,0xff);
+}
+/**********************************************
+函数名：td_settime1 	          
+功能：				  设置定时时间1～60ms
+参数：	time		  
+返回值：无
+***********************************************/
+void td_settime1(unsigned int time)
+{ unsigned char TMR1L,TMR1H;
+	TMR1L=(unsigned char)(time*1000);
+	TMR1H=(unsigned char)(time*1000/256);
+  outp(0x0F043,0x76);   //TMRCON=0111,0110 	定时器1初始化
+  outp(0x0F041,TMR1L);   //TMR1L定时器计数值的低8位
+  outp(0x0F041,TMR1H);   //TMR1H定时器计数值的高8位
+}
+/**********************************************
+函数名：td_openint_master 	          
+功能：				  根据中断向量打开主片该中断
+参数：	interruptno 	中断向量值
+返回值：无
+***********************************************/
+void td_openint_master(unsigned char interruptno)
+{ unsigned char i;
+	switch( interruptno )
+      {
+       case 0x08:
+       i=inp(0x21);
+       i=i&0xfe;
+       outp(0x21,i);
+       break;
+       case 0x09:
+       i=inp(0x21);
+       i=i&0xfd;
+       outp(0x21,i);
+       break;
+       case 0x0a:
+       i=inp(0x21);
+       i=i&0xfb;
+       outp(0x21,i);
+       break;
+       case 0x0b:
+       i=inp(0x21);
+       i=i&0xf7;
+       outp(0x21,i);
+       break;
+       case 0x0c:
+       i=inp(0x21);
+       i=i&0xef;
+       outp(0x21,i);
+       break;
+       case 0x0d:
+       i=inp(0x21);
+       i=i&0xdf;
+       outp(0x21,i);
+       break;
+       case 0x0e:
+       i=inp(0x21);
+       i=i&0xbf;
+       outp(0x21,i);
+       break;
+       case 0x0f:
+       i=inp(0x21);
+       i=i&0x7f;
+       outp(0x21,i);
+
+      }
+}
+/**********************************************
+函数名：td_mdiv16
+功能：				  16位符号数乘除法，x*y/z
+参数：	x 被乘数， y 乘数， z 除数  
+返回值：16位的计算结果
+***********************************************/
+td_mdiv16(int x,int y,int z)
+{ int i;
+ _asm{
+ 		mov  ax,x
+ 		imul y
+ 		idiv z
+ 		mov i,ax
+ 	 }
+  return(i);
+}

@@ -1,0 +1,25 @@
+#ifdef _OS_GLOBALS_
+#define OS_EXT extern
+#else
+#define OS_EXT    
+#endif
+
+在a.c 中定义了_OS_GLOBALS_ 那么头文件的函数声明前都会加上extern
+在b.c没有定义 函数声明前就是空格，不会有extern
+
+ISIS 菜单选择debug 点击use Remote Debug Moritor 就可以了
+在网上下载VDM51.DLL文件放到keil目录下的BIN文件下
+在keil目录下找到TOOLS文件打开将 TDRV9=BIN\VDM51.DLL ("Proteus VSM Monitor-51 Driver")粘贴进去
+
+每个.c都有自己的头文件，然后有一个头文件包含所有的头文件
+
+在51里面#define OS_ENTER_CRITICAL() EA=0
+		#define OS_EXIT_CRITICAL()  EA=1
+		在临界区执行的代码要有互斥性。
+系统是每次给1s的时间什么都不做，这个时候空闲任务就拼命的OSIdleCtr++，然后再给1s让就绪都去做，
+看空闲任务的OSIdleCtr能加到多少，最后一比较就知道利用率了。
+
+如何让函数成为可重入函数呢?C51编译器采用了一个扩展关键字reentrant作为定义函数时的选项
+需要将一个函数定义为可重入函数时只要在函数后面加上关键字reentrant即可。 
+
+我已经看完刘亮老师的前三集，每集都有好多节，这要注意。

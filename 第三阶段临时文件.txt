@@ -1,0 +1,144 @@
+const char lib_head1[25]={"Function Server Libs v1.0"};  //3个字符
+const char lib_head2[3]={0x0d,0x0a,0x1a};
+const char fun_head[10]={"Func Block"};
+
+
+int cmpstr(char *s,char *d,int size)
+{
+	int num=size;
+	while(!num--)
+	{
+
+	}
+}
+char a[]="math.add";
+typedef int(*lpAddFun)(int, int); //宏定义函数指针类型
+	int result=0;
+	HINSTANCE hDll; //DLL句柄 
+	lpAddFun addFun; //函数指针
+	for(i=0;i<FUN_NUM;i++)
+	{
+		if(strcmp(FUN[i].fun_name,a))
+			continue;
+		fp=fopen("FuncSlibs.lib","rb");
+		if(fp==NULL)
+		{
+			printf("ERROR: Open file FuncSlibs.lib failed.\n");
+			return 0;
+		}
+		fseek(fp,FUN[i].location,0);
+		buf=(char *)malloc(FUN[i].fun_size);
+		fread(buf, 1, FUN[i].fun_size,fp);
+		fclose(fp);
+		fp=fopen("fun.dll","wb");
+		if(fp==NULL)
+		{
+			printf("ERROR: Open file fun.dll failed.\n");
+			return 0;
+		}
+		fwrite(buf, 1, FUN[i].fun_size, fp);
+		fclose(fp);
+		free(buf);
+		hDll=LoadLibrary("fun.dll");
+		if(hDll != NULL)
+		{
+			addFun = (lpAddFun)GetProcAddress(hDll, "add");
+			if(addFun != NULL)
+			{
+				result = addFun(2, 3);
+				printf("%d\n", result);
+			}
+			FreeLibrary(hDll);
+		}
+	}
+
+	buf=(char *)malloc(11);
+	buf[10]=0;
+	fread(buf, 1, 10,fp);
+	printf("%s\n",buf);
+	free(buf);
+
+	buf=(char *)malloc(4);
+	fread(buf, 1, 4,fp);
+	FUN[1].fun_size=*(unsigned long*)buf;
+	free(buf);
+
+	fread(FUN[1].fun_name, 1, 255,fp);
+	FUN[1].location=25+3+10+4+255+FUN[0].fun_size+10+4+255;
+
+	printf("%ld KB\n%s\n",FUN[1].fun_size/1024,FUN[1].fun_name);
+	
+	
+	
+HANDLE mutex_Semaphore;
+void Producer(void )//创建生产者进程
+{
+	while(1)
+	{
+		WaitForSingleObject(empty_Semaphore,-1);//对empty_Semaphore进行P操作
+		WaitForSingleObject(mutex1_Semaphore,-1);//对mutex_Semaphore进行P操作
+		WaitForSingleObject(mutex_Semaphore,-1);//对mutex_Semaphore进行P操作
+		goods++;
+		printf("\n producer%ld product one!! the rooom have %d goods\n ",GetCurrentThreadId(),goods);
+		ReleaseSemaphore(mutex_Semaphore,1,NULL);//对full_Semaphore进行V操作
+		ReleaseSemaphore(mutex1_Semaphore,1,NULL);//对full_Semaphore进行V操作
+		ReleaseSemaphore(full_Semaphore,1,NULL);//对mutex_Semaphore进行V操作
+	
+	}
+}
+
+void Consumer(void )//创建消费者进程
+{
+	while(1)
+	{
+		Sleep(10);
+		WaitForSingleObject(full_Semaphore,-1);//对full_Semaphore进行P操作
+		WaitForSingleObject(mutex2_Semaphore,-1);//对mutex2_Semaphore进行P操作
+		WaitForSingleObject(mutex_Semaphore,-1);//对mutex_Semaphore进行P操作
+		goods--;
+		printf("\n consumer%ld take one!! the rooom have %d goods\n ",GetCurrentThreadId(),goods);
+		ReleaseSemaphore(mutex_Semaphore,1,NULL);
+		ReleaseSemaphore(mutex2_Semaphore,1,NULL);
+		ReleaseSemaphore(empty_Semaphore,1,NULL);
+	}
+}
+void main ()
+{
+	empty_Semaphore=CreateSemaphore(NULL,10,10,NULL);//创建信号量empty_Semaphore
+	full_Semaphore=CreateSemaphore(NULL,0,10,NULL);//创建信号量full_Semaphore
+	mutex1_Semaphore=CreateSemaphore(NULL,1,1,NULL);	mutex2_Semaphore=CreateSemaphore(NULL,1,1,NULL); 
+	mutex_Semaphore=CreateSemaphore(NULL,1,1,NULL);
+	CreateThread(NULL,0,(LPTHREAD_START_ROUTINE)(Producer),0,0,0);
+	CreateThread(NULL,0,(LPTHREAD_START_ROUTINE)(Producer),0,0,0);
+	CreateThread(NULL,0,(LPTHREAD_START_ROUTINE)(Producer),0,0,0);
+	CreateThread(NULL,0,(LPTHREAD_START_ROUTINE)(Producer),0,0,0);
+
+	CreateThread(NULL,0,(LPTHREAD_START_ROUTINE)(Consumer),0,0,0);
+	CreateThread(NULL,0,(LPTHREAD_START_ROUTINE)(Consumer),0,0,0);
+	CreateThread(NULL,0,(LPTHREAD_START_ROUTINE)(Consumer),0,0,0);
+	CreateThread(NULL,0,(LPTHREAD_START_ROUTINE)(Consumer),0,0,0);
+	getch();
+	return;
+}我的包机制的基本思想是这样的：按照函数的首字母来决定它放在哪个包里。
+查询的时候我按首字母来确定在哪个包里，然后在这个包里快速找到匹配函数
+
+我的包机制的基本思想是这样的：第一个函数1.fun 第二个函数2.fun 以此类推
+所以我存放这些函数就是按照 value=点前面的数字%30  如果value=0那么这个函数信息放到第0个包。
+这样就知道函数应该放在哪个包里面了，每次查询的时候
+
+
+FUN[FUN_NUM-1].location=FUN[FUN_NUM-2].location+FUN[FUN_NUM-2].fun_size+259;
+	copy(FUN[FUN_NUM-1].fun_name,FUN[i].fun_name);
+	FUN[i].fun_size=FUN[i+1].fun_size;
+	
+		for(;i<FUN_NUM;i++)
+	{
+		FUN[i].location=FUN[i+1].location-259-FUN[i].fun_size;
+		copy(FUN[i+1].fun_name,FUN[i].fun_name);
+		FUN[i].fun_size=FUN[i+1].fun_size;
+	}
+	if(FUN_NUM==0)
+		templen=38;
+	else 
+		templen=FUN[FUN_NUM-1].location+FUN[FUN_NUM-1].fun_size;	
+		
